@@ -4,12 +4,12 @@ import os
 
 class Planilla():
 
-    def __init__(self, carpeta, fin_encabezados) -> None:
+    def __init__(self, archivo, fin_encabezados) -> None:
         """
         - archivo: ruta de archivo
         - fin_encabezados: (int) ultima fila con encabezados, se saltean
         """
-        self.archivo = self.buscar_xls(carpeta)
+        self.archivo = archivo #self.buscar_xls(carpeta)
         self.fin_encabezados = fin_encabezados
 
         self.todos_los_items = self.recorrer_xls()
@@ -17,6 +17,7 @@ class Planilla():
     
     def buscar_xls(self, carpeta):
         """
+        No la uso desde que puse el file piccker.. 
         Busca el archivo xlsx mas reciente en la carpeta planilla
         Devuelve la ruta
         """

@@ -29,6 +29,10 @@ from flet import (
     AlertDialog,
     MainAxisAlignment,
     TextButton,
+    FilePicker,FilePickerResultEvent, FilePickerUploadFile,
+    ElevatedButton,
+    Divider
+
 
 )
 
@@ -65,41 +69,74 @@ class facturadorApp(UserControl):
     
     
     def build(self):
-
-        with open(self.resource_path("config.yaml"), 'r') as archivo:
+        
+        """ with open("config.yaml", 'r') as archivo:
             self.configs = yaml.load(archivo, Loader=yaml.FullLoader)
+        """
 
-        #levanta los datos de XLS
-        self.planilla= Planilla("assets/planilla",4)
-
-        self.es_test = self.configs["test"]
+        self.es_test = True #self.configs["test"]
 
         self.rpa = RPA(self.es_test)
 
         self.index = 0
         self.pagina = 2
-        item_leido_xls = self.planilla.todos_los_items[self.index] # diccionario
-        self.nueva_fecha = Text(value= item_leido_xls["fecha"])
-        self.nuevo_estado = Text(value= item_leido_xls["estado"])
-        self.nuevo_codigo = Text(value= item_leido_xls["codigo"])
-        self.nuevo_unidades = TextField(value= item_leido_xls["cantidad"], hint_text="cant.") #  style="headlineMedium"
-        self.nueva_desc = TextField(value= item_leido_xls["descripcion"], hint_text="descripción")
-        self.nuevo_precio = TextField(value= item_leido_xls["valor"], hint_text="subtotal venta")
+        item_leido_xls = None # diccionario
+        self.nueva_fecha = Text(value="")
+        self.nuevo_estado = Text(value= "")
+        self.nuevo_codigo = Text(value= "")
+        self.nuevo_unidades = TextField(value= "", hint_text="cant.") #  style="headlineMedium"
+        self.nueva_desc = TextField(value= "", hint_text="descripción")
+        self.nuevo_precio = TextField(value= "", hint_text="subtotal venta")
 
         self.progreso = ProgressBar(width=Page.width)
         self.progreso.value = 0
-        self.progreso_texto = Text(value= f"{self.index} / {len(self.planilla.todos_los_items)}", style= TextThemeStyle.BODY_SMALL)
+        self.progreso_texto = Text(value= "sin datos", style= TextThemeStyle.BODY_SMALL)
 
         self.progreso_facturacion = ProgressBar(width=Page.width)
 
         self.ventas =  ListView(spacing=10, padding=20, auto_scroll=True, height=300)
 
         self.estado_facturacion_titulo = Text (value="Esperando para iniciar...", style= TextThemeStyle.HEADLINE_LARGE)
-        self.estado_facturacion_subtitulo = Text (value=f"Se van a hacer {len(self.planilla.todos_los_items)} facturas")
+        self.estado_facturacion_subtitulo = Text (value=f"Se van a hacer ... facturas") #value=f"Se van a hacer {len(self.planilla.todos_los_items)}
 
         self.btn_factuar = OutlinedButton(text="FACTURAR", on_click= self.open_dlg)
 
-        self.head_agregar = Column (visible= True, controls = [
+        self.pick_files_dialog = FilePicker(on_result=self.pick_files_result)
+        self.selected_files = Text()
+
+        self.txt_cuit = TextField(value= "27115910669", label="CUIT")
+        self.txt_pass= TextField(value= "", label="Clave Fiscal")
+        
+
+        self.head_config= Column (visible= True, controls = [
+                            self.pick_files_dialog,
+                            Row(
+                                [
+                                    ElevatedButton(
+                                        "Seleccionar XLS",
+                                        icon=icons.UPLOAD_FILE,
+                                        on_click=lambda _: self.pick_files_dialog.pick_files(
+                                            allow_multiple=False
+                                        ),
+                                    ),
+                                ]
+                            ),
+                            Row(
+                                [self.selected_files,]
+                            ),
+                            Divider(height=9, thickness=2),
+                            Row(
+                                [self.txt_cuit,self.txt_pass ]
+                            ),
+                            Divider(height=9, thickness=2),
+                            OutlinedButton(text="CONTINUAR", on_click= self.fin_config)
+
+                            
+        ]) 
+
+
+        self.head_agregar = Column (visible= False, controls = [
+                            
                         ResponsiveRow([
                             Column(col=1, controls=[self.nuevo_unidades]),
                             Column(col=9, controls=[self.nueva_desc]),
@@ -137,6 +174,7 @@ class facturadorApp(UserControl):
             width=800,
             controls=[ 
                         self.dlg_modal, 
+                        self.head_config,
                         self.head_agregar,
                         self.head_facturando,
 
@@ -151,7 +189,7 @@ class facturadorApp(UserControl):
                                         vertical_alignment="center",
                                         controls=[
                                             #self.items_left,
-                                            self.btn_factuar
+                                            self.btn_factuar,
                                         ],
                                     ),
                                 ],
@@ -161,16 +199,62 @@ class facturadorApp(UserControl):
         
         return pagina
     
+    
+    
 
+    def carga_inicial_items(self):
+        item_leido_xls = self.planilla.todos_los_items[self.index] # diccionario
+        self.nueva_fecha.value =item_leido_xls["fecha"]
+        self.nuevo_estado.value = item_leido_xls["estado"]
+        self.nuevo_codigo.value = item_leido_xls["codigo"]
+        self.nuevo_unidades.value = item_leido_xls["cantidad"] #  style="headlineMedium"
+        self.nueva_desc.value = item_leido_xls["descripcion"]
+        self.nuevo_precio.value = item_leido_xls["valor"]
+
+        self.progreso = ProgressBar(width=Page.width)
+        self.progreso.value = 0
+        self.progreso_texto = Text(value= f"{self.index} / {len(self.planilla.todos_los_items)}", style= TextThemeStyle.BODY_SMALL)
+
+    def fin_config(self, e):
+        self.carga_inicial_items()
+        self.head_config.visible = False
+        self.head_agregar.visible = True
+        self.update()
+
+    def pick_files_result(self, e: FilePickerResultEvent):
+        
+        archivo = "".join(map(lambda f: f.path, e.files))
+        print (archivo)
+
+        if archivo:
+            #levanta los datos de XLS
+            self.planilla= Planilla(archivo,4)
+            self.selected_files.value = archivo
+            #self.carga_inicial_items()
+        else:
+            archivo = "Cancelaste, tenes que seleccionar una planilla para seguir..."
+
+        """
+        self.selected_files.value = (
+            ", ".join(map(lambda f: f.path, e.files)) if e.files else "Cancelled!"
+        )
+        """
+
+        #self.selected_files.value = e.files[0]
+        self.selected_files.update()
+
+    
+    """
     def resource_path(self,relative_path):
-        """ en teoria esto arregla la direccion relativa cuando importaba los archivos
-        luego de compilar macOS pero no está funcionando"""
+         en teoria esto arregla la direccion relativa cuando importaba los archivos
+        luego de compilar macOS pero no está funcionando
         try:
             base_path = sys._MEIPASS
         except Exception:
             base_path = os.path.abspath(".")
 
         return os.path.join(base_path, relative_path)
+        """
 
     def close_dlg(self,e):
             self.dlg_modal.open = False
@@ -235,9 +319,9 @@ class facturadorApp(UserControl):
         # proceso RPA en Afip
         
         # Login
-        try:
-            usuario = self.configs['CUIT']
-            password = self.configs['clave_fiscal']
+        try: 
+            usuario = self.txt_cuit.value
+            password = self.txt_pass.value
             self.estado_facturacion_titulo.value= "Ingresando al AFIP"
             self.estado_facturacion_subtitulo.value = f"CUIT: {usuario}"
             super().update()
@@ -307,7 +391,9 @@ def main(page: Page):
 
     # add application's root control to the page
     page.add(app)
+    
 
 
-flet.app(target=main)  # ,assets_dir="assets"
+flet.app(target=main, assets_dir="assets", upload_dir="assets/uploads")  # 
 # https://stackoverflow.com/questions/75571138/flet-paking-into-macos-application 
+# page.add(ft.Image(src="/uploads/<some-uploaded-picture.png>"))

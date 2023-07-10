@@ -178,7 +178,21 @@ class RPA():
 
         # si no estamos en modo TEST reamente hago la factura
         if self.es_test == False:
-            pass
+            """
+            #ATENCIÓN: confirmar datos ACA YA SE GENERA LA FACTURA
+            <input type="button" value="Confirmar Datos..." onclick="confirmar();" style="width:150px;" id="btngenerar">
+            """
+            boton_confirmar = driver.find_element("id", "btngenerar")
+            boton_confirmar.click()
+
+            sleep (5) # sacar luego, es para ver que pasa con el popup
+            self.driver.switch_to.alert.accept()
+            sleep (2) # sacar luego, es para ver que pasa con el popup
+
+            # aparece este boton que estaba oculto para imprimir el comprobante
+            #<input type="button" value="Imprimir..." onclick="parent.location.href='imprimirComprobante.do?c='+idComprobante;" style="width:150px;font-weight:bold;">
+            boton_imprimir = driver.find_element("xpath", "//input[@value='Imprimir...']")
+            boton_imprimir.click()
         
         # vuelve a empezar
         self.driver.get("https://fe.afip.gob.ar/rcel/jsp/index_bis.jsp")

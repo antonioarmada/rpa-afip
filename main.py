@@ -31,7 +31,7 @@ from flet import (
     TextButton,
     FilePicker,FilePickerResultEvent, FilePickerUploadFile,
     ElevatedButton,
-    Divider
+    Divider, RadioGroup, Radio
 
 
 )
@@ -74,13 +74,13 @@ class facturadorApp(UserControl):
             self.configs = yaml.load(archivo, Loader=yaml.FullLoader)
         """
 
-        self.es_test = True #self.configs["test"]
+        #self.es_test = True #self.configs["test"]
 
-        self.rpa = RPA(self.es_test)
+        #self.rpa = RPA(self.es_test)
 
         self.index = 0
         self.pagina = 2
-        item_leido_xls = None # diccionario
+        #item_leido_xls = None # diccionario
         self.nueva_fecha = Text(value="")
         self.nuevo_estado = Text(value= "")
         self.nuevo_codigo = Text(value= "")
@@ -106,17 +106,23 @@ class facturadorApp(UserControl):
 
         self.txt_cuit = TextField(value= "27115910669", label="CUIT")
         self.txt_pass= TextField(value= "", label="Clave Fiscal")
+        self.radio_test= RadioGroup(content=Column([
+                        Radio(value="PRUEBA", label="Si, estamos probando"),
+                        Radio(value="REAL", label="No, vamos a facturar realmente"),
+                        ]))
+        self.txt_error_config = Text (visible=False, color="red")
         
 
         self.head_config= Column (visible= True, controls = [
                             self.pick_files_dialog,
+                            Text(value="1. Seleccioná la planilla de Mercado Libre", style= TextThemeStyle.HEADLINE_SMALL),
                             Row(
                                 [
                                     ElevatedButton(
                                         "Seleccionar XLS",
                                         icon=icons.UPLOAD_FILE,
                                         on_click=lambda _: self.pick_files_dialog.pick_files(
-                                            allow_multiple=False
+                                            allow_multiple=False, allowed_extensions=["xls","xlsx"]
                                         ),
                                     ),
                                 ]
@@ -124,12 +130,16 @@ class facturadorApp(UserControl):
                             Row(
                                 [self.selected_files,]
                             ),
-                            Divider(height=9, thickness=2),
+                            Divider(height=30, thickness=1),
+                            Text(value="2. Ingresá tus datos", style= TextThemeStyle.HEADLINE_SMALL),
                             Row(
                                 [self.txt_cuit,self.txt_pass ]
                             ),
-                            Divider(height=9, thickness=2),
-                            OutlinedButton(text="CONTINUAR", on_click= self.fin_config)
+                            Divider(height=30, thickness=1),
+                            Text(value="3. Es una prueba?", style= TextThemeStyle.HEADLINE_SMALL),
+                            self.radio_test,
+                            OutlinedButton(text="CONTINUAR", on_click= self.fin_config),
+                            self.txt_error_config
 
                             
         ]) 
@@ -169,15 +179,8 @@ class facturadorApp(UserControl):
                         self.estado_facturacion_subtitulo,
                         OutlinedButton(text="CANCELAR", on_click= self.cancelar_facturacion)
                         ])
-
-        pagina = Column(
-            width=800,
-            controls=[ 
-                        self.dlg_modal, 
-                        self.head_config,
-                        self.head_agregar,
-                        self.head_facturando,
-
+        
+        self.cuerpo_lista = Column(visible= False, controls = [
                         ResponsiveRow( controls=[self.progreso, self.progreso_texto] ),
 
                         Column(
@@ -194,6 +197,19 @@ class facturadorApp(UserControl):
                                     ),
                                 ],
                             ),
+            ]
+
+        )
+
+        pagina = Column(
+            width=800,
+            controls=[ 
+                        self.dlg_modal, 
+                        self.head_config,
+                        self.head_agregar,
+                        self.head_facturando,
+                        self.cuerpo_lista
+                        
                     ]
                 )
         
@@ -210,37 +226,44 @@ class facturadorApp(UserControl):
         self.nuevo_unidades.value = item_leido_xls["cantidad"] #  style="headlineMedium"
         self.nueva_desc.value = item_leido_xls["descripcion"]
         self.nuevo_precio.value = item_leido_xls["valor"]
+        self.progreso_texto.value= f"{self.index} / {len(self.planilla.todos_los_items)}"
 
-        self.progreso = ProgressBar(width=Page.width)
-        self.progreso.value = 0
-        self.progreso_texto = Text(value= f"{self.index} / {len(self.planilla.todos_los_items)}", style= TextThemeStyle.BODY_SMALL)
+
 
     def fin_config(self, e):
-        self.carga_inicial_items()
-        self.head_config.visible = False
-        self.head_agregar.visible = True
-        self.update()
+        if self.selected_files.value:
+            if self.txt_pass.value:
+                if self.radio_test.value:
+                    self.carga_inicial_items()
+                    self.head_config.visible = False
+                    self.head_agregar.visible = True
+                    self.cuerpo_lista.visible = True 
+                    self.txt_error_config.visible = False
+                    self.update()
+                else: 
+                    self.txt_error_config.value = "Tenes decirme si es un Test o no..."
+                    self.txt_error_config.visible = True
+                    self.update()
+            else:
+                self.txt_error_config.value = "Tenes que ingresar la CLAVE FISCAL..."
+                self.txt_error_config.visible = True
+                self.update()
+        else :
+            self.txt_error_config.value = "Tenes que seleccionar una planilla..."
+            self.txt_error_config.visible = True
+            self.update()
 
     def pick_files_result(self, e: FilePickerResultEvent):
-        
-        archivo = "".join(map(lambda f: f.path, e.files))
-        print (archivo)
 
-        if archivo:
+        if e.files:
+            archivo = "".join(map(lambda f: f.path, e.files))
+            print (archivo)
             #levanta los datos de XLS
             self.planilla= Planilla(archivo,4)
             self.selected_files.value = archivo
-            #self.carga_inicial_items()
         else:
-            archivo = "Cancelaste, tenes que seleccionar una planilla para seguir..."
+            self.selected_files.value = ""
 
-        """
-        self.selected_files.value = (
-            ", ".join(map(lambda f: f.path, e.files)) if e.files else "Cancelled!"
-        )
-        """
-
-        #self.selected_files.value = e.files[0]
         self.selected_files.update()
 
     
@@ -261,12 +284,7 @@ class facturadorApp(UserControl):
             self.update()
         
     def open_dlg(self,e):
-            modo = "INDEFINIDO"
-            if self.es_test:
-                modo = "TEST"
-            else:
-                modo = "REAL"
-            self.dlg_modal.content= Text(f"¿Empezamos a hacer {len(self.ventas.controls)} facturas? en modo {modo} ")
+            self.dlg_modal.content= Text(f"¿Empezamos a hacer {len(self.ventas.controls)} facturas? en modo {self.radio_test.value} ")
             self.dlg_modal.open = True
             self.update()
 
@@ -314,10 +332,18 @@ class facturadorApp(UserControl):
         self.progreso.value = None
         self.progreso_texto.value = f"0 / {len(self.ventas.controls)}"
         self.update()
-        print ("////////////// --  FACTURANDO --  //////////////")
-
-        # proceso RPA en Afip
         
+        # proceso RPA en Afip
+
+        if self.radio_test.value == "REAL":
+            es_test = False
+        else:
+            es_test = True
+
+        print (f"////////////// --  FACTURANDO es_test:{es_test} / {self.radio_test.value}--  //////////////")
+
+        self.rpa = RPA(es_test)
+
         # Login
         try: 
             usuario = self.txt_cuit.value

@@ -1,0 +1,3 @@
+([('main',
+   '/Users/antonioemilioarmadacastillo/Documents/Farbots/Impulso/RPA_ML_AFIP/main/dist/main',
+   'EXECUTABLE')],)
